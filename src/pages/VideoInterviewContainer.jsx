@@ -22,7 +22,7 @@ const VideoInterviewApp = () => {
   const [speechAvailable, setSpeechAvailable] = useState(false);
 
   const [questions, setQuestions] = useState([]);
-
+  const [readingCountdown, setReadingCountdown] = useState(10);
   const buttonRef = useRef(null);
 
   useEffect(() => {
@@ -33,11 +33,42 @@ const VideoInterviewApp = () => {
         if (buttonRef.current) {
           buttonRef.current.click(); // Automatically triggers the click event
         }
-      }, 5000); // 5 seconds delay
+      }, 10000); // 5 seconds delay
 
       return () => clearTimeout(timer); // Cleanup timeout on unmount or state change
     }
   }, [currentQuestionIndex, recordingStatus, reviewMode, interviewComplete]);
+
+  useEffect(() => {
+    let timer;
+    // Only run countdown when a new question is loaded and we're not recording
+    if (
+      recordingStatus === "idle" &&
+      !reviewMode &&
+      !interviewComplete &&
+      readingCountdown > 0
+    ) {
+      timer = setInterval(() => {
+        setReadingCountdown((prev) => prev - 1);
+      }, 1000);
+    } else if (readingCountdown === 0) {
+      // Reset the countdown for the next question
+      setReadingCountdown(10);
+    }
+
+    return () => clearInterval(timer);
+  }, [
+    recordingStatus,
+    reviewMode,
+    interviewComplete,
+    readingCountdown,
+    currentQuestionIndex,
+  ]);
+
+  // Reset the countdown when moving to a new question
+  useEffect(() => {
+    setReadingCountdown(10);
+  }, [currentQuestionIndex]);
 
   useEffect(() => {
     getQuestions();
@@ -528,6 +559,11 @@ const VideoInterviewApp = () => {
               )}
             </div>
             <p className="text-xl">{questions[currentQuestionIndex]}</p>
+            {recordingStatus === "idle" && readingCountdown > 0 && (
+              <div className="mt-2 text-amber-400 font-bold animate-pulse">
+                Starting automatically in {readingCountdown} seconds...
+              </div>
+            )}
           </div>
 
           {recordingStatus === "idle" ? (
