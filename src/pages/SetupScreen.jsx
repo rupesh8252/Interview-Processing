@@ -15,6 +15,7 @@ const SetupScreen = () => {
   const [micLevel, setMicLevel] = useState(0);
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [videoDevices, setVideoDevices] = useState([]);
+  const [audioError, setAudioError] = useState(false);
 
   // Handle camera permissions
   const handleUserMedia = () => {
@@ -61,6 +62,7 @@ const SetupScreen = () => {
       navigator.mediaDevices
         .getUserMedia({ audio: true })
         .then((stream) => {
+          setAudioError(false);
           mic = audioContext.createMediaStreamSource(stream);
           analyser = audioContext.createAnalyser();
           analyser.fftSize = 256;
@@ -81,6 +83,7 @@ const SetupScreen = () => {
           setError(
             "Microphone access denied. Please check browser permissions."
           );
+          setAudioError(true);
         });
     }
 
@@ -98,6 +101,9 @@ const SetupScreen = () => {
       facingMode: "user",
     };
   };
+
+  // Determine if we should disable the Start Interview button
+  const isStartButtonDisabled = error !== null || (audioEnabled && audioError);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-blue-900 to-black p-6">
@@ -295,10 +301,24 @@ const SetupScreen = () => {
                   `/interview?job_id=${job_id}&interview_id=${interview_id}`
                 )
               }
-              className="w-full px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-lg font-bold rounded-lg hover:from-blue-600 hover:to-purple-700 shadow-lg flex items-center justify-center"
+              disabled={isStartButtonDisabled}
+              className={`w-full px-8 py-4 ${
+                isStartButtonDisabled
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+              } text-white text-lg font-bold rounded-lg shadow-lg flex items-center justify-center`}
             >
-              Start Interview
+              {isStartButtonDisabled
+                ? "Fix Equipment Issues to Continue"
+                : "Start Interview"}
             </button>
+
+            {isStartButtonDisabled && (
+              <p className="text-red-500 text-center mt-2">
+                Please resolve all equipment issues before proceeding to the
+                interview.
+              </p>
+            )}
           </div>
         </div>
       </div>
