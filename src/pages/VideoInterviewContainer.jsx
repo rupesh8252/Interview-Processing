@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 const VideoInterviewApp = () => {
   const searchParams = new URLSearchParams(window.location.search);
   const interview_id = searchParams.get("interview_id");
+  const job_id = searchParams.get("job_id");
   const videoRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const [stream, setStream] = useState(null);
@@ -77,8 +78,10 @@ const VideoInterviewApp = () => {
   const getQuestions = async () => {
     try {
       const response = await axios.get(
-        "https://ai-interview-urf8.onrender.com/openings/questions/1/"
+        `https://ai-interview-urf8.onrender.com/openings/questions/${job_id}/`
       );
+
+      console.log("Questions API response:", response.data); // Add this line to debug
 
       if (response.data && Array.isArray(response.data.questions)) {
         setQuestions(response.data.questions);
@@ -86,11 +89,48 @@ const VideoInterviewApp = () => {
         setQuestions(response.data);
       } else {
         console.error("Unexpected API response format:", response.data);
+        // Set a default question for testing if API fails
+        setQuestions(["Tell me about yourself and your experience."]);
       }
     } catch (error) {
       console.error("❌ Error fetching questions:", error);
+      // Set a default question array as fallback
+      setQuestions(["Tell me about yourself and your experience."]);
     }
   };
+
+  useEffect(() => {
+    if ("speechSynthesis" in window) {
+      // This ensures voices are loaded before we try to use them
+      window.speechSynthesis.onvoiceschanged = () => {
+        setSpeechAvailable(true);
+      };
+
+      // Initial check
+      if (window.speechSynthesis.getVoices().length > 0) {
+        setSpeechAvailable(true);
+      }
+    } else {
+      console.error("Text-to-speech is not supported in this browser");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (
+      speechAvailable &&
+      !reviewMode &&
+      recordingStatus === "idle" &&
+      questions.length > 0
+    ) {
+      speakQuestion(questions[currentQuestionIndex]);
+    }
+  }, [
+    currentQuestionIndex,
+    recordingStatus,
+    reviewMode,
+    speechAvailable,
+    questions,
+  ]);
 
   useEffect(() => {
     if ("speechSynthesis" in window) {
@@ -152,8 +192,44 @@ const VideoInterviewApp = () => {
     }
   }, [currentQuestionIndex, recordingStatus, reviewMode, speechAvailable]);
 
+  //   const speakQuestion = (text) => {
+  //     if (!speechAvailable) return;
+
+  //     // Cancel any ongoing speech
+  //     window.speechSynthesis.cancel();
+
+  //     const utterance = new SpeechSynthesisUtterance(text);
+
+  //     // Set speech properties
+  //     utterance.rate = 1.0; // Speed: 0.1 to 10
+  //     utterance.pitch = 1.0; // Pitch: 0 to 2
+  //     utterance.volume = 1.0; // Volume: 0 to 1
+
+  //     // Optional: You can set a specific voice
+  //     const voices = window.speechSynthesis.getVoices();
+  //     // Try to find a female English voice for a more natural interview experience
+  //     const preferredVoice = voices.find(
+  //       (voice) =>
+  //         voice.name.includes("female") ||
+  //         voice.name.includes("Female") ||
+  //         voice.name.includes("Samantha")
+  //     );
+
+  //     if (preferredVoice) {
+  //       utterance.voice = preferredVoice;
+  //     }
+
+  //     // Events to track speaking status
+  //     utterance.onstart = () => setIsSpeaking(true);
+  //     utterance.onend = () => setIsSpeaking(false);
+  //     utterance.onerror = () => setIsSpeaking(false);
+
+  //     // Speak the text
+  //     window.speechSynthesis.speak(utterance);
+  //   };
+
   const speakQuestion = (text) => {
-    if (!speechAvailable) return;
+    if (!text || !speechAvailable) return;
 
     // Cancel any ongoing speech
     window.speechSynthesis.cancel();
@@ -161,18 +237,20 @@ const VideoInterviewApp = () => {
     const utterance = new SpeechSynthesisUtterance(text);
 
     // Set speech properties
-    utterance.rate = 1.0; // Speed: 0.1 to 10
-    utterance.pitch = 1.0; // Pitch: 0 to 2
-    utterance.volume = 1.0; // Volume: 0 to 1
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
 
-    // Optional: You can set a specific voice
+    // Get available voices
     const voices = window.speechSynthesis.getVoices();
-    // Try to find a female English voice for a more natural interview experience
+
+    // Try to find a female English voice
     const preferredVoice = voices.find(
       (voice) =>
-        voice.name.includes("female") ||
-        voice.name.includes("Female") ||
-        voice.name.includes("Samantha")
+        (voice.name.includes("female") ||
+          voice.name.includes("Female") ||
+          voice.name.includes("Samantha")) &&
+        voice.lang.includes("en")
     );
 
     if (preferredVoice) {
@@ -187,7 +265,6 @@ const VideoInterviewApp = () => {
     // Speak the text
     window.speechSynthesis.speak(utterance);
   };
-
   const handleStartAnswering = () => {
     // Stop any ongoing speech before starting recording
     if (speechAvailable) {
@@ -444,7 +521,7 @@ const VideoInterviewApp = () => {
       <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-blue-900 to-black text-white p-6">
         <div className="max-w-2xl w-full bg-gray-800 bg-opacity-80 rounded-2xl p-8 shadow-2xl">
           <h1 className="text-3xl font-bold mb-6 text-center">
-            🎉 Interview Complete!
+            🎉 Interview Completed!
           </h1>
           <div className="flex justify-center mb-6">
             <div className="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center">
@@ -491,7 +568,7 @@ const VideoInterviewApp = () => {
       <div className="max-w-4xl w-full">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">
-            <span className="text-blue-400">Video</span> Interview
+            <span className="text-blue-400">AI Powered</span> Interview
           </h1>
           <div className="flex items-center">
             <div className="text-sm mr-2">Progress:</div>

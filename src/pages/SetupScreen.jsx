@@ -9,8 +9,9 @@ const SetupScreen = () => {
   const navigate = useNavigate();
   const webcamRef = useRef(null);
 
-  const [videoEnabled, setVideoEnabled] = useState(true);
-  const [audioEnabled, setAudioEnabled] = useState(true);
+  // Changed default values to false
+  const [videoEnabled, setVideoEnabled] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(false);
   const [error, setError] = useState(null);
   const [micLevel, setMicLevel] = useState(0);
   const [selectedDevice, setSelectedDevice] = useState(null);
@@ -57,6 +58,12 @@ const SetupScreen = () => {
     let dataArray;
     let animationFrameId;
 
+    // Explicitly set micLevel to 0 when audio is disabled
+    if (!audioEnabled) {
+      setMicLevel(0);
+      return;
+    }
+
     if (audioEnabled) {
       audioContext = new (window.AudioContext || window.webkitAudioContext)();
       navigator.mediaDevices
@@ -102,8 +109,27 @@ const SetupScreen = () => {
     };
   };
 
-  // Determine if we should disable the Start Interview button
-  const isStartButtonDisabled = error !== null || (audioEnabled && audioError);
+  // Updated logic to require both video and audio to be enabled
+  const isStartButtonDisabled =
+    error !== null ||
+    (audioEnabled && audioError) ||
+    !videoEnabled ||
+    !audioEnabled;
+
+  // Get the appropriate message for the button
+  const getButtonMessage = () => {
+    if (error !== null || (audioEnabled && audioError)) {
+      return "Fix Equipment Issues to Continue";
+    } else if (!videoEnabled && !audioEnabled) {
+      return "Enable Camera and Microphone to Continue";
+    } else if (!videoEnabled) {
+      return "Enable Camera to Continue";
+    } else if (!audioEnabled) {
+      return "Enable Microphone to Continue";
+    } else {
+      return "Start Interview";
+    }
+  };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-blue-900 to-black p-6">
@@ -215,7 +241,9 @@ const SetupScreen = () => {
                 <p className="text-gray-700 font-medium">Microphone Level:</p>
                 <span
                   className={`text-sm font-medium ${
-                    micLevel > 30 ? "text-green-600" : "text-gray-500"
+                    audioEnabled && micLevel > 30
+                      ? "text-green-600"
+                      : "text-gray-500"
                   }`}
                 >
                   {audioEnabled
@@ -234,7 +262,7 @@ const SetupScreen = () => {
                       ? "bg-green-400"
                       : "bg-gray-400"
                   }`}
-                  style={{ width: `${micLevel}%` }}
+                  style={{ width: `${audioEnabled ? micLevel : 0}%` }}
                 />
               </div>
               {audioEnabled && micLevel < 5 && (
@@ -308,12 +336,17 @@ const SetupScreen = () => {
                   : "bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
               } text-white text-lg font-bold rounded-lg shadow-lg flex items-center justify-center`}
             >
-              {isStartButtonDisabled
-                ? "Fix Equipment Issues to Continue"
-                : "Start Interview"}
+              {getButtonMessage()}
             </button>
 
-            {isStartButtonDisabled && (
+            {isStartButtonDisabled && !error && !audioError && (
+              <p className="text-amber-600 text-center mt-2">
+                Both camera and microphone must be enabled to proceed with the
+                interview.
+              </p>
+            )}
+
+            {(error || audioError) && (
               <p className="text-red-500 text-center mt-2">
                 Please resolve all equipment issues before proceeding to the
                 interview.
